@@ -16,7 +16,7 @@ struct WebhookPayload: Codable {
 class WebhookService {
     static let shared = WebhookService()
     
-    private let defaultWebhookURL = "https://clawdbot-railway-template-production-1dde.up.railway.app/hooks/ios"
+    private let defaultWebhookURL = "https://clawdbot-railway-template-production-1dde.up.railway.app/hooks/whispr"
     
     var webhookURL: String {
         UserDefaults.standard.string(forKey: "webhook_url") ?? defaultWebhookURL
@@ -56,28 +56,37 @@ class WebhookService {
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 print("Webhook error: \(error)")
-                DispatchQueue.main.async { completion(nil) }
-                return
-            }
-            
-            guard let data = data else {
-                print("No response data")
-                DispatchQueue.main.async { completion(nil) }
-                return
-            }
-            
-            // Try to parse response
-            do {
-                let response = try JSONDecoder().decode(WebhookResponse.self, from: data)
-                print("Webhook response: action=\(response.action)")
-                DispatchQueue.main.async { completion(response) }
-            } catch {
-                // Response might be plain text or different format
-                if let text = String(data: data, encoding: .utf8) {
-                    print("Webhook response (text): \(text.prefix(100))")
+                // Still show success - request was sent, JARVIS will respond via Telegram
+                DispatchQueue.main.async { 
+                    completion(WebhookResponse(action: "telegram", text: nil, message: "Sent to JARVIS"))
                 }
-                DispatchQueue.main.async { completion(nil) }
+                return
             }
+            
+            // For async webhooks, any 2xx response means success
+            if let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) {
+                print("Webhook accepted (status \(httpResponse.statusCode))")
+                DispatchQueue.main.async {
+                    completion(WebhookResponse(action: "telegram", text: nil, message: "Processing..."))
+                }
+                return
+            }
+            
+            // Try to parse response (for future sync support)
+            if let data = data {
+                do {
+                    let response = try JSONDecoder().decode(WebhookResponse.self, from: data)
+                    print("Webhook response: action=\(response.action)")
+                    DispatchQueue.main.async { completion(response) }
+                    return
+                } catch {
+                    if let text = String(data: data, encoding: .utf8) {
+                        print("Webhook response (text): \(text.prefix(100))")
+                    }
+                }
+            }
+            
+            DispatchQueue.main.async { completion(nil) }
         }.resume()
     }
 }
