@@ -1,93 +1,123 @@
-# Jarvis - Context-Aware Voice Assistant for macOS
+# JARVIS Whispr
 
-A lightweight menubar app that gives you instant access to Clawdbot with keyboard shortcuts.
+A fast, native macOS menubar app for voice-to-JARVIS communication. Like WisprFlow, but better - it talks directly to JARVIS.
 
 ## Features
 
-### 🎙️ Double-Tap Shortcuts
-- **Double Control** → Open chat window
-- **Double Option** → Start voice recording (hold, release to finish)
+- **Click to Record** - Menubar icon, one click starts/stops recording
+- **Instant Transcription** - Uses OpenAI Whisper API
+- **Screenshot Context** - Captures screen when you start recording
+- **Smart Responses** - JARVIS decides: Telegram reply or clipboard paste
+- **Recording Backup** - All recordings saved locally (never re-record!)
 
-### 🧠 Context-Aware Transcription
-When you record with Option:
-1. Records your voice
-2. Captures current screen context (via Peekaboo)
-3. Sends both to Clawdbot
-4. Gets back context-aware text
-5. Auto-pastes into active app
+## Requirements
 
-Perfect for:
-- Filling forms
-- Writing emails
-- Taking notes
-- Any text input with visual context
+- macOS 13.0+
+- OpenAI API key (for Whisper transcription)
+- JARVIS/OpenClaw instance with webhook
+
+## Build & Run
+
+### Option 1: Xcode (Recommended)
+
+1. Open folder in Xcode: `File > Open > select jarvis-wispr folder`
+2. Xcode will recognize the Package.swift
+3. Select "My Mac" as destination
+4. Build and Run (⌘R)
+
+### Option 2: Command Line
+
+```bash
+swift build -c release
+# Binary will be in .build/release/JarvisWhispr
+```
+
+### Create App Bundle (Optional)
+
+To make a proper .app bundle, use Xcode's Archive feature or create manually:
+
+```bash
+mkdir -p JarvisWhispr.app/Contents/MacOS
+cp .build/release/JarvisWhispr JarvisWhispr.app/Contents/MacOS/
+cp JarvisWhispr/Info.plist JarvisWhispr.app/Contents/
+```
 
 ## Setup
 
-### 1. Build & Run
-```bash
-cd ~/Developer/jarvis
-open Jarvis.xcodeproj
-```
-
-Build and run from Xcode (⌘R)
-
-### 2. Grant Permissions
-On first launch, you'll be prompted for:
-- **Accessibility** (for keyboard monitoring & auto-paste)
-- **Microphone** (for voice recording)
-
-### 3. Dependencies
-Jarvis uses:
-- `clawdbot` CLI (for messaging)
-- `peekaboo` (for screen context) - install via: `npm install -g peekaboo`
+1. **First Launch** - Grant microphone permission when prompted
+2. **Settings** (right-click menubar icon > Settings)
+   - Enter your OpenAI API key
+   - Webhook URL is pre-configured for JARVIS
 
 ## Usage
 
-### Chat Window
-- Double-tap **Control** anywhere
-- Type and press Enter
-- Window stays on top (floating)
+1. **Click** the mic icon in menubar to start recording
+2. **Speak** your request or text
+3. **Click** again to stop
+4. Wait for transcription + JARVIS response:
+   - **Task/Question**: Response sent to Telegram
+   - **Text to refine**: Rephrased text copied to clipboard
 
-### Voice Recording
-- Double-tap and **hold Option**
-- Speak your message
-- Release Option to finish
-- Text auto-pastes to active window
+## Response Modes
 
-## Architecture
+JARVIS automatically detects your intent:
 
+- **"Send an email to..."** → Drafts text, copies to clipboard
+- **"What's on my calendar?"** → Responds via Telegram
+- **"Rephrase this paragraph"** → Improved text to clipboard
+- **"Remind me to..."** → Confirms via Telegram
+
+## Recordings Storage
+
+All recordings are saved to:
 ```
-Jarvis (menubar app)
-├── KeyMonitor → double-tap detection
-├── ChatWindow → SwiftUI chat interface
-├── VoiceRecorder → AVFoundation recording
-└── ClawdbotAPI → CLI/HTTP communication
+~/Library/Application Support/JarvisWhispr/recordings/
 ```
 
-## Tips
+Never deleted automatically - your backup in case transcription fails.
 
-- Voice recording captures screen context automatically
-- Chat window remembers conversation history
-- Minimal resource usage (runs as accessory app)
-- Uses system mic permissions (no separate entitlements needed)
+## Webhook Format
+
+The app sends POST requests to the webhook:
+
+```json
+{
+  "transcription": "user's spoken text",
+  "screenshot": "base64 encoded JPEG",
+  "timestamp": "2026-02-04T01:20:00Z",
+  "mode": "auto"
+}
+```
+
+Expected response for clipboard mode:
+```json
+{
+  "action": "clipboard",
+  "text": "refined text to paste"
+}
+```
+
+Expected response for Telegram mode:
+```json
+{
+  "action": "telegram",
+  "message": "confirmation message"
+}
+```
 
 ## Troubleshooting
 
-**Keyboard shortcuts not working?**
-→ Grant Accessibility permission in System Settings
+**No transcription?**
+- Check OpenAI API key in Settings
+- Verify microphone permission
 
-**Voice recording fails?**
-→ Check microphone permissions
+**Screenshot not captured?**
+- Grant Screen Recording permission in System Settings > Privacy
 
-**Can't connect to Clawdbot?**
-→ Make sure `clawdbot gateway start` is running
+**Webhook not working?**
+- Verify webhook URL in Settings
+- Check JARVIS/OpenClaw is running
 
-## Future Ideas
+## License
 
-- Customizable shortcuts
-- Multiple voice profiles
-- Screen recording instead of snapshots
-- Persistent chat history
-- Quick actions menu
-# jarvis-wispr
+MIT
